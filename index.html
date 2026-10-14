@@ -3,83 +3,139 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Base Elite Clientes - Consulta de Dados</title>
+  <title>Base Elite Clientes - Dashboard</title>
 
-  <!-- Biblioteca PapaParse para leitura do CSV -->
+  <!-- Biblioteca PapaParse para ler o CSV sem erros de CORS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 
   <style>
     * {
       box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
 
     body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      background-color: #f4f6f8;
-      color: #333;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f0f2f5;
+      color: #1c1e21;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 100%;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      padding: 20px;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      gap: 15px;
     }
 
     h1 {
+      font-size: 24px;
       color: #2c3e50;
-      margin-bottom: 20px;
     }
 
-    /* Container com rolagem para suportar as 54 colunas */
-    #resultado {
+    /* Barra de Busca */
+    .search-box {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .search-box input {
+      padding: 10px 16px;
+      border: 1px solid #cccccc;
+      border-radius: 6px;
+      font-size: 14px;
+      width: 300px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-box input:focus {
+      border-color: #3498db;
+    }
+
+    .counter {
+      font-size: 14px;
+      color: #666666;
+      font-weight: 600;
+    }
+
+    /* Tabela */
+    .table-container {
       overflow-x: auto;
-      max-width: 100%;
-      background-color: #ffffff;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      padding: 10px;
+      max-height: 70vh;
+      border: 1px solid #e1e4e8;
+      border-radius: 6px;
     }
 
-    /* Estilização da Tabela */
     table {
       width: 100%;
       border-collapse: collapse;
-      white-space: nowrap; /* Evita quebras de linha indesejadas nas células */
+      white-space: nowrap;
+      font-size: 13px;
     }
 
     th, td {
       padding: 10px 14px;
       text-align: left;
-      border-bottom: 1px solid #e0e0e0;
-      font-size: 14px;
+      border-bottom: 1px solid #e1e4e8;
     }
 
     th {
-      background-color: #3498db;
-      color: white;
-      text-transform: uppercase;
-      font-size: 12px;
-      letter-spacing: 0.5px;
+      background-color: #2c3e50;
+      color: #ffffff;
+      font-weight: 600;
       position: sticky;
       top: 0;
+      z-index: 10;
     }
 
     tr:hover {
       background-color: #f8f9fa;
     }
 
-    /* Mensagens de estado */
     .carregando {
+      text-align: center;
+      padding: 40px;
       font-size: 16px;
-      font-weight: bold;
-      color: #555;
+      color: #555555;
     }
 
     .erro {
       color: #e74c3c;
       font-weight: bold;
+      padding: 20px;
+      text-align: center;
     }
   </style>
 </head>
 <body>
 
-  <h1>Base Elite Clientes</h1>
-  <div id="resultado" class="carregando">Carregando dados da planilha...</div>
+  <div class="container">
+    <header>
+      <h1>Base Elite Clientes</h1>
+      <div class="search-box">
+        <input type="text" id="inputBusca" placeholder="Pesquisar por nome, CNPJ, e-mail...">
+        <span id="contador" class="counter">0 registros</span>
+      </div>
+    </header>
+
+    <div id="resultado" class="table-container">
+      <div class="carregando">Carregando dados da planilha...</div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>
