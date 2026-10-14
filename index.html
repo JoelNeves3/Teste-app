@@ -11,6 +11,7 @@
     .container { max-width: 100%; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 10px; flex-wrap: wrap; }
     input { padding: 10px; width: 300px; max-width: 100%; border: 1px solid #ccc; border-radius: 4px; outline: none; }
+    button { padding: 10px 16px; border: 0; border-radius: 4px; background: #2c3e50; color: #fff; cursor: pointer; font: inherit; }
     .table-container { overflow-x: auto; max-height: 70vh; }
     table { width: 100%; border-collapse: collapse; white-space: nowrap; font-size: 13px; }
     th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #ddd; }
@@ -18,6 +19,8 @@
     tr:hover { background-color: #f1f1f1; }
     .erro { color: #e74c3c; font-weight: bold; padding: 20px; text-align: center; white-space: normal; line-height: 1.5; }
     #contador { margin-left: 8px; color: #666; font-size: 13px; }
+    #tokenBox { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; padding: 14px; background: #eef2f6; border-radius: 6px; }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
@@ -31,87 +34,56 @@
       </div>
     </header>
 
+    <div id="tokenBox" hidden>
+      <span>Digite o código de acesso (fica salvo neste navegador):</span>
+      <input type="password" id="wtoken" placeholder="Código de acesso">
+      <button id="wtokenOk" type="button">Conectar</button>
+    </div>
+
     <div id="resultado" class="table-container">Carregando dados da planilha...</div>
   </div>
 
   <script>
-    // ===== Configuração (usada só quando a página NÃO está no Apps Script) =====
-    const SHEET_URL = 'https://script.google.com/a/macros/bling.com.br/s/AKfycbyn0nHoQx7NA2WaIyNvHY3xJTzoUeKtNEGR-enDhMTWZCYDZ2PMVGw-YvvpXMyEKssbWw/exec';
-    const SHEET_TAB = '';
+    // ===== Configuração =====
+    // Link do App da Web do Apps Script (termina em /exec).
+    // O código de acesso NÃO vai aqui: cada pessoa digita uma vez e ele fica salvo no navegador dela.
+    const WEBAPP_URL = 'COLE_AQUI_O_LINK_EXEC';
 
-    // ===== Leitura da planilha =====
-    // 1) Dentro do Apps Script: lê pelo servidor (funciona com a planilha restrita à LWSA)
-    function loadAppsScript() {
+    // ===== Leitura via App da Web (JSONP) =====
+    function jsonp(url, ms = 60000) {
       return new Promise((resolve, reject) => {
-        google.script.run
-          .withSuccessHandler(resolve)
-          .withFailureHandler(e => reject(new Error('Erro ao ler a planilha: ' + (e && e.message ? e.message : e))))
-          .getDados();
-      });
-    }
-
-    // 2) Fora do Apps Script: lê via gviz em JSONP (<script>), que envia o login Google do navegador.
-    //    O fetch() anterior ia sem login, por isso falhava em planilhas restritas à LWSA.
-    function sheetId(url) {
-      const m = String(url).match(/\/d\/([a-zA-Z0-9_-]{20,})/) || String(url).match(/^([a-zA-Z0-9_-]{20,})$/);
-      return m ? m[1] : null;
-    }
-    function sheetGid(url) {
-      const m = String(url).match(/[#&?]gid=(\d+)/);
-      return m ? m[1] : null;
-    }
-
-    function loadGoogle(url, aba) {
-      return new Promise((resolve, reject) => {
-        const id = sheetId(url);
-        if (!id) return reject(new Error('Link inválido. Use o link completo da planilha Google (…/spreadsheets/d/ID/…).'));
-        const gid = sheetGid(url);
-        const cb = '__planilha_' + Date.now();
-        let endereco = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json;responseHandler:${cb}&headers=1`;
-        if (aba) endereco += `&sheet=${encodeURIComponent(aba)}`;
-        else if (gid) endereco += `&gid=${gid}`;
-        endereco += `&_=${Date.now()}`;
-
+        const cb = 'cbBase_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
         const s = document.createElement('script');
-        const limpar = () => { clearTimeout(timer); delete window[cb]; s.remove(); };
-        const semAcesso = () => {
-          limpar();
-          reject(new Error('Não consegui ler a planilha. Entre no navegador com sua conta Google da LWSA e confirme que você tem acesso a ela. Se a planilha for um .xlsx no Drive, converta em Arquivo > Salvar como Planilhas Google.'));
-        };
-        const timer = setTimeout(semAcesso, 15000);
-
-        window[cb] = resp => {
-          limpar();
-          if (!resp || resp.status === 'error') {
-            const msg = resp && resp.errors && resp.errors[0] ? (resp.errors[0].detailed_message || resp.errors[0].message) : '';
-            return reject(new Error('A planilha retornou erro' + (msg ? ': ' + msg : '.')));
-          }
-          const cols = resp.table.cols.map(c => c.label || '');
-          const linhas = resp.table.rows.map(r =>
-            cols.map((_, i) => {
-              const c = r.c && r.c[i];
-              return c ? (c.f != null ? c.f : (c.v != null ? String(c.v) : '')) : '';
-            })
-          );
-          resolve([cols, ...linhas]);
-        };
-        // Sem acesso, o Google devolve a tela de login (HTML) e o callback nunca é chamado
-        s.onerror = semAcesso;
-        s.onload = () => setTimeout(() => { if (window[cb]) semAcesso(); }, 300);
-        s.src = endereco;
-        document.head.appendChild(s);
+        const fim = () => { clearTimeout(t); try { delete window[cb]; } catch (e) { window[cb] = undefined; } s.remove(); };
+        const t = setTimeout(() => { fim(); reject(new Error('O serviço de dados não respondeu. Tente de novo em instantes.')); }, ms);
+        window[cb] = d => { fim(); resolve(d); };
+        s.onerror = () => { fim(); reject(new Error('Não consegui acessar o serviço de dados. Confira o WEBAPP_URL e se o App da Web está implantado com acesso para "Qualquer pessoa".')); };
+        s.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
+        document.body.appendChild(s);
       });
     }
 
-    function carregar() {
-      const noAppsScript = typeof google !== 'undefined' && google.script && google.script.run;
-      if (noAppsScript) return loadAppsScript();
-      // O Google exige OAuth para ler planilhas não públicas via gviz, então fora do Apps Script não há como ler.
-      return Promise.reject(new Error('Esta página precisa ser aberta pelo link do App da Web (Apps Script, termina em /exec). Aberta como arquivo solto, ela não tem permissão para ler a planilha restrita à LWSA.'));
+    function pedirToken(msg) {
+      $('#tokenBox').hidden = false;
+      $('#wtoken').focus();
+      $('#resultado').innerHTML = `<p class="erro">${esc(msg || 'Digite o código de acesso para ver os dados.')}</p>`;
+    }
+
+    async function carregar() {
+      let tok = null; try { tok = localStorage.getItem('baseEliteToken'); } catch (e) {}
+      if (!tok) { pedirToken(); return null; }
+      const d = await jsonp(`${WEBAPP_URL}?token=${encodeURIComponent(tok)}`);
+      if (!d || !d.ok) {
+        if (d && d.erro === 'token') { try { localStorage.removeItem('baseEliteToken'); } catch (e) {} pedirToken('Código de acesso inválido. Digite novamente.'); return null; }
+        throw new Error('Serviço de dados: ' + ((d && d.mensagem) || 'resposta inválida.'));
+      }
+      $('#tokenBox').hidden = true;
+      ATUALIZADO_EM = d.atualizado_em || '';
+      return d.linhas || [];
     }
 
     // ===== Tabela e busca =====
-    let CABECALHO = [], DADOS = [];
+    let CABECALHO = [], DADOS = [], ATUALIZADO_EM = '';
     const $ = s => document.querySelector(s);
     const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -135,9 +107,9 @@
       const lista = !termo ? DADOS : DADOS.filter(d =>
         d.busca.includes(termo) || (termoDig.length >= 3 && termoDig === termo.replace(/[.\-\/\s]/g, '') && d.digitos.includes(termoDig))
       );
-      $('#contador').textContent = termo
+      $('#contador').textContent = (termo
         ? `${lista.length.toLocaleString('pt-BR')} de ${DADOS.length.toLocaleString('pt-BR')} registros`
-        : `${DADOS.length.toLocaleString('pt-BR')} registros`;
+        : `${DADOS.length.toLocaleString('pt-BR')} registros`) + (ATUALIZADO_EM ? ` · atualizado em ${ATUALIZADO_EM}` : '');
 
       if (!lista.length) { $('#resultado').innerHTML = '<p class="erro">Nenhum registro encontrado.</p>'; return; }
       const th = CABECALHO.map(h => `<th>${esc(h)}</th>`).join('');
@@ -145,17 +117,29 @@
       $('#resultado').innerHTML = `<table><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table>`;
     }
 
-    // ===== Início =====
-    document.addEventListener('DOMContentLoaded', async () => {
-      let t;
-      $('#inputBusca').addEventListener('input', () => { clearTimeout(t); t = setTimeout(render, 200); });
+    async function iniciar() {
+      $('#resultado').textContent = 'Carregando dados da planilha...';
       try {
-        prepararDados(await carregar());
+        const linhas = await carregar();
+        if (!linhas) return;
+        prepararDados(linhas);
         render();
       } catch (e) {
         $('#contador').textContent = '0 registros';
         $('#resultado').innerHTML = `<p class="erro">${esc(e.message)}</p>`;
       }
+    }
+
+    // ===== Início =====
+    document.addEventListener('DOMContentLoaded', () => {
+      let t;
+      $('#inputBusca').addEventListener('input', () => { clearTimeout(t); t = setTimeout(render, 200); });
+      // aceita ?token=... no link (salva e limpa da barra de endereço)
+      const p = new URLSearchParams(location.search);
+      if (p.get('token')) { try { localStorage.setItem('baseEliteToken', p.get('token')); } catch (e) {} p.delete('token'); history.replaceState(null, '', location.pathname + (p.toString() ? '?' + p : '')); }
+      $('#wtokenOk').onclick = () => { const v = $('#wtoken').value.trim(); if (!v) return; try { localStorage.setItem('baseEliteToken', v); } catch (e) {} $('#wtoken').value = ''; iniciar(); };
+      $('#wtoken').onkeydown = ev => { if (ev.key === 'Enter') $('#wtokenOk').click(); };
+      iniciar();
     });
   </script>
 </body>
