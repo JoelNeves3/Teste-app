@@ -1,35 +1,36 @@
-// Link direto de exportação CSV da aba 'Clientes'
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/1_sleJps2U8sjup_JIioBvbDDzQS9U2Uy3xrAh6LUxtQ/export?format=csv&sheet=Clientes';
+// Cole aqui o URL gerado na implantação do Apps Script
+const API_URL = 'https://script.google.com/a/macros/bling.com.br/s/AKfycbwBfnUZnOfbxH1lmjB3zyH9r0vZUqP7BJ5zEahhSRqsM-zjajdGHK3bNYCx40xdhB56iw/exec';
 
 let dadosGlobais = [];
 let colunasGlobais = [];
 
-// Lê os dados da planilha via PapaParse
-Papa.parse(CSV_URL, {
-  download: true,
-  header: true,
-  skipEmptyLines: true,
-  complete: function(results) {
-    dadosGlobais = results.data;
+async function carregarDados() {
+  const container = document.getElementById('resultado');
+
+  try {
+    const response = await fetch(API_URL);
+    if (!response.ok) {
+      throw new Error(`Erro na requisição: ${response.statusText}`);
+    }
+
+    dadosGlobais = await response.json();
 
     if (!dadosGlobais || dadosGlobais.length === 0) {
-      document.getElementById('resultado').innerHTML = '<p class="erro">Nenhum dado encontrado na planilha.</p>';
+      container.innerHTML = '<p class="erro">Nenhum dado encontrado na planilha.</p>';
       return;
     }
 
+    // Pega as colunas a partir do primeiro registro
     colunasGlobais = Object.keys(dadosGlobais[0]);
-    
-    // Exibe a tabela e ativa a barra de pesquisa
+
     renderizarTabela(dadosGlobais);
     configurarBusca();
-  },
-  error: function(err) {
-    console.error('Erro ao carregar o CSV:', err);
-    document.getElementById('resultado').innerHTML = 
-      '<p class="erro">Erro ao carregar os dados.<br>' +
-      'Verifique se a planilha no Google Sheets está configurada em "Arquivo > Compartilhar > Publicar na Web" como CSV.</p>';
+
+  } catch (error) {
+    console.error('Erro ao buscar dados do Apps Script:', error);
+    container.innerHTML = `<p class="erro">Falha ao carregar dados da API: <strong>${error.message}</strong></p>`;
   }
-});
+}
 
 function renderizarTabela(dados) {
   const container = document.getElementById('resultado');
@@ -83,3 +84,6 @@ function configurarBusca() {
     renderizarTabela(filtrados);
   });
 }
+
+// Inicializa a consulta
+carregarDados();
