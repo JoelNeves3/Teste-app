@@ -1,7 +1,7 @@
 // ID extraído da sua URL: 1_sleJps2U8sjup_JIioBvbDDzQS9U2Uy3xrAh6LUxtQ
 const SPREADSHEET_ID = '1_sleJps2U8sjup_JIioBvbDDzQS9U2Uy3xrAh6LUxtQ';
 // Nome da aba dentro da planilha (ex: 'Clientes' ou 'Página1')
-const RANGE = 'Clientes!A1:ZZ1000'; 
+const RANGE = 'ID!A1:ZZ1000'; 
 // Insira a sua API Key gerada no Google Cloud Console
 const API_KEY = 'AQ.Ab8RN6IuaLsZnMk4r1rFwS-2GCvTQLxMIv5Rx7NmSooryMbsxg'; 
 
