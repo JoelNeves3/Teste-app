@@ -1,40 +1,65 @@
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/1_sleJps2U8sjup_JIioBvbDDzQS9U2Uy3xrAh6LUxtQ/export?format=csv&sheet=Clientes';
+// ID extraído da sua planilha
+const SPREADSHEET_ID = '1_sleJps2U8sjup_JIioBvbDDzQS9U2Uy3xrAh6LUxtQ';
 
-Papa.parse(CSV_URL, {
-  download: true,
-  header: true,
-  skipEmptyLines: true,
-  complete: function(results) {
-    const dados = results.data;
-    const container = document.getElementById('resultado');
+// Aba 'Clientes' e intervalo A até BB cobrindo todas as 54 colunas
+const RANGE = 'Clientes!A1:BB2000';
 
-    if (!dados || dados.length === 0) {
+// IMPORTANTE: Insira aqui uma API Key válida do Google Cloud (começa com AIzaSy...)
+const API_KEY = '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';
+
+const API_URL = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${RANGE}?key=${API_KEY}`;
+
+async function carregarDadosComAPI() {
+  const container = document.getElementById('resultado');
+
+  try {
+    const response = await fetch(API_URL);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error?.message || `Erro HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const rows = data.values;
+
+    if (!rows || rows.length === 0) {
       container.innerHTML = '<p class="erro">Nenhum dado encontrado na planilha.</p>';
       return;
     }
 
-    const colunas = Object.keys(dados[0]);
+    // A primeira linha contém os cabeçalhos das colunas
+    const colunas = rows[0];
 
+    // As linhas seguintes contêm todos os dados dos clientes
+    const dados = rows.slice(1);
+
+    // Monta o cabeçalho da tabela
     let html = '<table><thead><tr>';
-    colunas.forEach(coluna => {
-      html += `<th>${coluna}</th>`;
+    colunas.forEach(col => {
+      html += `<th>${col || ''}</th>`;
     });
     html += '</tr></thead><tbody>';
 
-    dados.forEach(linha => {
+    // Preenche as linhas da tabela
+    dados.forEach(row => {
       html += '<tr>';
-      colunas.forEach(coluna => {
-        html += `<td>${linha[coluna] !== undefined ? linha[coluna] : ''}</td>`;
+      colunas.forEach((_, index) => {
+        html += `<td>${row[index] !== undefined ? row[index] : ''}</td>`;
       });
       html += '</tr>';
     });
 
     html += '</tbody></table>';
+
+    // Insere no DOM
     container.innerHTML = html;
-  },
-  error: function(err) {
-    console.error('Erro PapaParse:', err);
-    document.getElementById('resultado').innerHTML = 
-      '<p class="erro">Falha ao carregar dados. Certifique-se de estar rodando em um servidor local (ex: Live Server) e que a planilha esteja pública.</p>';
+
+  } catch (error) {
+    console.error('Erro detalhado:', error);
+    container.innerHTML = `<p class="erro">Falha ao carregar dados via API: <strong>${error.message}</strong></p>`;
   }
-});
+}
+
+// Executa a requisição ao carregar o script
+carregarDadosComAPI();
