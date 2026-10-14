@@ -1,51 +1,47 @@
-// URL de exportação CSV direta apontando para a aba 'Clientes'
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/1_sleJps2U8sjup_JIioBvbDDzQS9U2Uy3xrAh6LUxtQ/export?format=csv&sheet=Clientes';
+// ID extraído da sua planilha
+const SPREADSHEET_ID = '1_sleJps2U8sjup_JIioBvbDDzQS9U2Uy3xrAh6LUxtQ';
 
-// Função para converter o texto CSV recebido em uma matriz/array
-function parseCSV(text) {
-  const lines = text.split('\n');
-  return lines.map(line => {
-    // Trata valores entre aspas contendo vírgula
-    const regex = /(?:,|\n|^)("(?:(?:"")*[^"]*)*"|[^",\n]*|(?:\n|$))/g;
-    const row = [];
-    let match;
-    while ((match = regex.exec(line)) && match[0] !== '') {
-      let val = match[1] || '';
-      if (val.startsWith('"') && val.endsWith('"')) {
-        val = val.substring(1, val.length - 1).replace(/""/g, '"');
-      }
-      row.push(val.trim());
-    }
-    return row;
-  });
-}
+// Define a aba e o intervalo de colunas (A até BB cobre todas as 54 colunas)
+const RANGE = 'Clientes!A1:BB2000'; 
 
-async function carregarDadosCSV() {
+// Cole aqui a sua chave de API criada no Google Cloud Console (começa com AIzaSy...)
+const API_KEY = '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'; 
+
+const API_URL = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${RANGE}?key=${API_KEY}`;
+
+async function carregarDadosComAPI() {
   const container = document.getElementById('resultado');
 
   try {
-    const response = await fetch(CSV_URL);
+    const response = await fetch(API_URL);
+    
     if (!response.ok) {
-      throw new Error(`Erro ao acessar planilha: ${response.statusText}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error?.message || `Erro HTTP ${response.status}`);
     }
 
-    const csvText = await response.text();
-    const rows = parseCSV(csvText).filter(r => r.length > 1);
+    const data = await response.json();
+    const rows = data.values;
 
-    if (rows.length === 0) {
+    if (!rows || rows.length === 0) {
       container.innerHTML = '<p class="erro">Nenhum dado encontrado na planilha.</p>';
       return;
     }
 
+    // A primeira linha contém os cabeçalhos das colunas
     const colunas = rows[0];
+    
+    // As linhas seguintes contêm todos os dados dos clientes
     const dados = rows.slice(1);
 
+    // Monta o cabeçalho da tabela
     let html = '<table><thead><tr>';
     colunas.forEach(col => {
       html += `<th>${col || ''}</th>`;
     });
     html += '</tr></thead><tbody>';
 
+    // Preenche as linhas da tabela
     dados.forEach(row => {
       html += '<tr>';
       colunas.forEach((_, index) => {
@@ -55,12 +51,15 @@ async function carregarDadosCSV() {
     });
 
     html += '</tbody></table>';
+    
+    // Insere no DOM
     container.innerHTML = html;
 
   } catch (error) {
-    console.error('Erro:', error);
-    container.innerHTML = `<p class="erro">Falha ao carregar dados: <strong>${error.message}</strong></p>`;
+    console.error('Erro detalhado:', error);
+    container.innerHTML = `<p class="erro">Falha ao carregar dados via API: <strong>${error.message}</strong></p>`;
   }
 }
 
-carregarDadosCSV();
+// Executa a requisição
+carregarDadosComAPI();
