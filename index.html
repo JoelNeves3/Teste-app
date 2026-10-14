@@ -105,7 +105,9 @@
 
     function carregar() {
       const noAppsScript = typeof google !== 'undefined' && google.script && google.script.run;
-      return noAppsScript ? loadAppsScript() : loadGoogle(SHEET_URL, SHEET_TAB);
+      if (noAppsScript) return loadAppsScript();
+      // O Google exige OAuth para ler planilhas não públicas via gviz, então fora do Apps Script não há como ler.
+      return Promise.reject(new Error('Esta página precisa ser aberta pelo link do App da Web (Apps Script, termina em /exec). Aberta como arquivo solto, ela não tem permissão para ler a planilha restrita à LWSA.'));
     }
 
     // ===== Tabela e busca =====
