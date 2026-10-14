@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Base Elite Clientes - Dashboard</title>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background-color: #f4f6f8; padding: 20px; color: #333; }
+    .container { max-width: 100%; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 10px; flex-wrap: wrap; }
+    input { padding: 10px; width: 300px; max-width: 100%; border: 1px solid #ccc; border-radius: 4px; outline: none; }
+    .table-container { overflow-x: auto; max-height: 70vh; }
+    table { width: 100%; border-collapse: collapse; white-space: nowrap; font-size: 13px; }
+    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #ddd; }
+    th { background: #2c3e50; color: #fff; position: sticky; top: 0; z-index: 10; }
+    tr:hover { background-color: #f1f1f1; }
+    .erro { color: #e74c3c; font-weight: bold; padding: 20px; text-align: center; white-space: normal; line-height: 1.5; }
+    #contador { margin-left: 8px; color: #666; font-size: 13px; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>Base Elite Clientes</h1>
+      <div>
+        <input type="text" id="inputBusca" placeholder="Pesquisar por nome, CNPJ, e-mail...">
+        <span id="contador">0 registros</span>
+      </div>
+    </header>
+
+    <div id="resultado" class="table-container">Carregando dados da planilha...</div>
+  </div>
+
+  <script>
+    // ===== Configuração (usada só quando a página NÃO está no Apps Script) =====
+    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1_sleJps2U8sjup_JIioBvbDDzQS9U2Uy3xrAh6LUxtQ/edit?usp=sharing';
+    const SHEET_TAB = '';
+
+    // ===== Leitura da planilha =====
+    // 1) Dentro do Apps Script: lê pelo servidor (funciona com a planilha restrita à LWSA)
+    function loadAppsScript() {
+      return new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(e => reject(new Error('Erro ao ler a planilha: ' + (e && e.message ? e.message : e))))
+          .getDados();
+      });
+    }
+
+    // 2) Fora do Apps Script: lê via gviz em JSONP (<script>), que envia o login Google do navegador.
+    //    O fetch() anterior ia sem login, por isso falhava em planilhas restritas à LWSA.
+    function sheetId(url) {
+      const m = String(url).match(/\/d\/([a-zA-Z0-9_-]{20,})/) || String(url).match(/^([a-zA-Z0-9_-]{20,})$/);
+      return m ? m[1] : null;
+    }
+    function sheetGid(url) {
+      const m = String(url).match(/[#&?]gid=(\d+)/);
+      return m ? m[1] : null;
+    }
+
+    function loadGoogle(url, aba) {
+      return new Promise((resolve, reject) => {
+        const id = sheetId(url);
+        if (!id) return reject(new Error('Link inválido. Use o link completo da planilha Google (…/spreadsheets/d/ID/…).'));
+        const gid = sheetGid(url);
+        const cb = '__planilha_' + Date.now();
+        let endereco = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json;responseHandler:${cb}&headers=1`;
+        if (aba) endereco += `&sheet=${encodeURIComponent(aba)}`;
+        else if (gid) endereco += `&gid=${gid}`;
+        endereco += `&_=${Date.now()}`;
+
+        const s = document.createElement('script');
+        const limpar = () => { clearTimeout(timer); delete window[cb]; s.remove(); };
+        const semAcesso = () => {
+          limpar();
+          reject(new Error('Não consegui ler a planilha. Entre no navegador com sua conta Google da LWSA e confirme que você tem acesso a ela. Se a planilha for um .xlsx no Drive, converta em Arquivo > Salvar como Planilhas Google.'));
+        };
+        const timer = setTimeout(semAcesso, 15000);
+
+        window[cb] = resp => {
+          limpar();
+          if (!resp || resp.status === 'error') {
+            const msg = resp && resp.errors && resp.errors[0] ? (resp.errors[0].detailed_message || resp.errors[0].message) : '';
+            return reject(new Error('A planilha retornou erro' + (msg ? ': ' + msg : '.')));
+          }
+          const cols = resp.table.cols.map(c => c.label || '');
+          const linhas = resp.table.rows.map(r =>
+            cols.map((_, i) => {
+              const c = r.c && r.c[i];
+              return c ? (c.f != null ? c.f : (c.v != null ? String(c.v) : '')) : '';
+            })
+          );
+          resolve([cols, ...linhas]);
+        };
+        // Sem acesso, o Google devolve a tela de login (HTML) e o callback nunca é chamado
+        s.onerror = semAcesso;
+        s.onload = () => setTimeout(() => { if (window[cb]) semAcesso(); }, 300);
+        s.src = endereco;
+        document.head.appendChild(s);
+      });
+    }
+
+    function carregar() {
+      const noAppsScript = typeof google !== 'undefined' && google.script && google.script.run;
+      return noAppsScript ? loadAppsScript() : loadGoogle(SHEET_URL, SHEET_TAB);
+    }
+
+    // ===== Tabela e busca =====
+    let CABECALHO = [], DADOS = [];
+    const $ = s => document.querySelector(s);
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+    function prepararDados(linhas) {
+      const uteis = linhas.filter(l => l.some(c => String(c).trim() !== ''));
+      if (!uteis.length) throw new Error('A planilha está vazia.');
+      let nCols = 0;
+      uteis.forEach(l => l.forEach((c, i) => { if (String(c).trim() !== '') nCols = Math.max(nCols, i + 1); }));
+      CABECALHO = uteis[0].slice(0, nCols).map((h, i) => String(h).trim() || `Coluna ${i + 1}`);
+      DADOS = uteis.slice(1).map(l => {
+        const cel = Array.from({ length: nCols }, (_, i) => l[i] ?? '');
+        const texto = norm(cel.join(' | '));
+        return { cel, busca: texto, digitos: texto.replace(/\D/g, '') };
+      });
+    }
+
+    function render() {
+      const termo = norm($('#inputBusca').value.trim());
+      const termoDig = termo.replace(/\D/g, '');
+      const lista = !termo ? DADOS : DADOS.filter(d =>
+        d.busca.includes(termo) || (termoDig.length >= 3 && termoDig === termo.replace(/[.\-\/\s]/g, '') && d.digitos.includes(termoDig))
+      );
+      $('#contador').textContent = termo
+        ? `${lista.length.toLocaleString('pt-BR')} de ${DADOS.length.toLocaleString('pt-BR')} registros`
+        : `${DADOS.length.toLocaleString('pt-BR')} registros`;
+
+      if (!lista.length) { $('#resultado').innerHTML = '<p class="erro">Nenhum registro encontrado.</p>'; return; }
+      const th = CABECALHO.map(h => `<th>${esc(h)}</th>`).join('');
+      const trs = lista.map(d => `<tr>${d.cel.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('');
+      $('#resultado').innerHTML = `<table><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table>`;
+    }
+
+    // ===== Início =====
+    document.addEventListener('DOMContentLoaded', async () => {
+      let t;
+      $('#inputBusca').addEventListener('input', () => { clearTimeout(t); t = setTimeout(render, 200); });
+      try {
+        prepararDados(await carregar());
+        render();
+      } catch (e) {
+        $('#contador').textContent = '0 registros';
+        $('#resultado').innerHTML = `<p class="erro">${esc(e.message)}</p>`;
+      }
+    });
+  </script>
+</body>
+</html>
