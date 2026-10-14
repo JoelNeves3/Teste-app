@@ -5,7 +5,7 @@ const SPREADSHEET_ID = '1_sleJps2U8sjup_JIioBvbDDzQS9U2Uy3xrAh6LUxtQ';
 const RANGE = 'Clientes!A1:BB2000'; 
 
 // Sua chave de API configurada
-const API_KEY = 'b7b3e92d735b36a40ec6dff7e1a71d6293703292'; 
+const API_KEY = 'AQ.Ab8RN6Lr7Frp9LgeaHeW1hZjJMkYmqMHym3rBj84O6HZxWLhcw'; 
 
 const API_URL = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${RANGE}?key=${API_KEY}`;
 
