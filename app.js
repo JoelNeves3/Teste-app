@@ -1,9 +1,10 @@
-// Endpoint do CSV direto da aba 'Clientes'
+// Link direto de exportação CSV da aba 'Clientes'
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/1_sleJps2U8sjup_JIioBvbDDzQS9U2Uy3xrAh6LUxtQ/export?format=csv&sheet=Clientes';
 
 let dadosGlobais = [];
 let colunasGlobais = [];
 
+// Lê os dados da planilha via PapaParse
 Papa.parse(CSV_URL, {
   download: true,
   header: true,
@@ -18,14 +19,15 @@ Papa.parse(CSV_URL, {
 
     colunasGlobais = Object.keys(dadosGlobais[0]);
     
-    // Renderiza a tabela inicial e atualiza o contador
+    // Exibe a tabela e ativa a barra de pesquisa
     renderizarTabela(dadosGlobais);
     configurarBusca();
   },
   error: function(err) {
     console.error('Erro ao carregar o CSV:', err);
     document.getElementById('resultado').innerHTML = 
-      '<p class="erro">Erro ao carregar dados. Verifique no Google Sheets em "Arquivo > Compartilhar > Publicar na Web" se a aba "Clientes" está publicada em formato CSV.</p>';
+      '<p class="erro">Erro ao carregar os dados.<br>' +
+      'Verifique se a planilha no Google Sheets está configurada em "Arquivo > Compartilhar > Publicar na Web" como CSV.</p>';
   }
 });
 
@@ -35,11 +37,11 @@ function renderizarTabela(dados) {
 
   if (dados.length === 0) {
     container.innerHTML = '<p class="erro">Nenhum registro encontrado para a busca.</p>';
-    contador.innerText = '0 registros';
+    if (contador) contador.innerText = '0 registros';
     return;
   }
 
-  contador.innerText = `${dados.length} registro(s)`;
+  if (contador) contador.innerText = `${dados.length} registro(s)`;
 
   let html = '<table><thead><tr>';
   colunasGlobais.forEach(col => {
@@ -61,6 +63,7 @@ function renderizarTabela(dados) {
 
 function configurarBusca() {
   const input = document.getElementById('inputBusca');
+  if (!input) return;
 
   input.addEventListener('input', function() {
     const termo = this.value.toLowerCase().trim();
