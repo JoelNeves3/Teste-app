@@ -4,8 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Consulta de Dados da Planilha</title>
-  <!-- Biblioteca PapaParse -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   
   <style>
     body {
@@ -20,18 +18,23 @@
       margin-bottom: 20px;
     }
 
-    /* Estilização da Tabela */
+    /* Permite rolagem horizontal para ver todas as 54 colunas */
+    #resultado {
+      overflow-x: auto;
+      max-width: 100%;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
       background-color: #ffffff;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       border-radius: 8px;
-      overflow: hidden;
+      white-space: nowrap; /* Evita que o texto quebre linhas na tabela */
     }
 
     th, td {
-      padding: 12px 15px;
+      padding: 10px 14px;
       text-align: left;
       border-bottom: 1px solid #ddd;
     }
@@ -40,30 +43,23 @@
       background-color: #3498db;
       color: white;
       text-transform: uppercase;
-      font-size: 14px;
-      letter-spacing: 0.5px;
+      font-size: 13px;
     }
 
     tr:hover {
       background-color: #f1f1f1;
     }
 
-    /* Mensagem de carregamento e erro */
-    #resultado {
-      font-size: 16px;
-      font-weight: bold;
-      color: #555;
-    }
-
     .erro {
       color: #e74c3c;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
 
-  <h1>Dados da Planilha</h1>
-  <div id="resultado">Carregando dados...</div>
+  <h1>Base Elite Clientes</h1>
+  <div id="resultado">Carregando dados da planilha...</div>
 
   <script src="app.js"></script>
 </body>
