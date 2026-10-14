@@ -3,12 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Consulta de Dados da Planilha</title>
-  
-  <!-- Biblioteca PapaParse -->
+  <title>Base Elite Clientes - Consulta de Dados</title>
+
+  <!-- Biblioteca PapaParse para leitura do CSV -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       font-family: Arial, sans-serif;
       margin: 20px;
@@ -21,35 +25,49 @@
       margin-bottom: 20px;
     }
 
+    /* Container com rolagem para suportar as 54 colunas */
     #resultado {
       overflow-x: auto;
       max-width: 100%;
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      padding: 10px;
     }
 
+    /* Estilização da Tabela */
     table {
       width: 100%;
       border-collapse: collapse;
-      background-color: #ffffff;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      border-radius: 8px;
-      white-space: nowrap;
+      white-space: nowrap; /* Evita quebras de linha indesejadas nas células */
     }
 
     th, td {
       padding: 10px 14px;
       text-align: left;
-      border-bottom: 1px solid #ddd;
+      border-bottom: 1px solid #e0e0e0;
+      font-size: 14px;
     }
 
     th {
       background-color: #3498db;
       color: white;
       text-transform: uppercase;
-      font-size: 13px;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      position: sticky;
+      top: 0;
     }
 
     tr:hover {
-      background-color: #f1f1f1;
+      background-color: #f8f9fa;
+    }
+
+    /* Mensagens de estado */
+    .carregando {
+      font-size: 16px;
+      font-weight: bold;
+      color: #555;
     }
 
     .erro {
@@ -61,7 +79,7 @@
 <body>
 
   <h1>Base Elite Clientes</h1>
-  <div id="resultado">Carregando dados da planilha...</div>
+  <div id="resultado" class="carregando">Carregando dados da planilha...</div>
 
   <script src="app.js"></script>
 </body>
