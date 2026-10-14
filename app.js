@@ -1,4 +1,4 @@
-// Cole aqui o URL gerado na implantação do Apps Script
+// Substitua pela URL exata gerada na sua implantação do Apps Script
 const API_URL = 'https://script.google.com/a/macros/bling.com.br/s/AKfycbwBfnUZnOfbxH1lmjB3zyH9r0vZUqP7BJ5zEahhSRqsM-zjajdGHK3bNYCx40xdhB56iw/exec';
 
 let dadosGlobais = [];
@@ -8,9 +8,14 @@ async function carregarDados() {
   const container = document.getElementById('resultado');
 
   try {
-    const response = await fetch(API_URL);
+    // Adicionado redirect: 'follow' para lidar com o redirecionamento nativo do Google
+    const response = await fetch(API_URL, {
+      method: 'GET',
+      redirect: 'follow'
+    });
+
     if (!response.ok) {
-      throw new Error(`Erro na requisição: ${response.statusText}`);
+      throw new Error(`Erro na requisição (Status ${response.status}): ${response.statusText}`);
     }
 
     dadosGlobais = await response.json();
@@ -20,15 +25,15 @@ async function carregarDados() {
       return;
     }
 
-    // Pega as colunas a partir do primeiro registro
+    // Identifica as colunas a partir do primeiro registro
     colunasGlobais = Object.keys(dadosGlobais[0]);
 
     renderizarTabela(dadosGlobais);
     configurarBusca();
 
   } catch (error) {
-    console.error('Erro ao buscar dados do Apps Script:', error);
-    container.innerHTML = `<p class="erro">Falha ao carregar dados da API: <strong>${error.message}</strong></p>`;
+    console.error('Erro detalhado:', error);
+    container.innerHTML = `<p class="erro">Falha ao carregar dados da API: <strong>${error.message}</strong>.<br><br>Dica: Verifique se em "Implantar > Gerenciar Implantações" o acesso está configurado como <strong>"Qualquer pessoa"</strong>.</p>`;
   }
 }
 
@@ -85,5 +90,5 @@ function configurarBusca() {
   });
 }
 
-// Inicializa a consulta
+// Executa o carregamento ao abrir a página
 carregarDados();
