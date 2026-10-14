@@ -1,65 +1,49 @@
-// ID extraído da sua planilha
-const SPREADSHEET_ID = '1_sleJps2U8sjup_JIioBvbDDzQS9U2Uy3xrAh6LUxtQ';
+// Link do CSV exportado diretamente da aba 'Clientes' da sua planilha
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/1_sleJps2U8sjup_JIioBvbDDzQS9U2Uy3xrAh6LUxtQ/export?format=csv&sheet=Clientes';
 
-// Aba 'Clientes' e intervalo A até BB cobrindo todas as 54 colunas
-const RANGE = 'Clientes!A1:BB2000';
+Papa.parse(CSV_URL, {
+  download: true,
+  header: true,
+  skipEmptyLines: true,
+  complete: function(results) {
+    const dados = results.data;
+    const container = document.getElementById('resultado');
 
-// IMPORTANTE: Insira aqui uma API Key válida do Google Cloud (começa com AIzaSy...)
-const API_KEY = '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';
-
-const API_URL = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${RANGE}?key=${API_KEY}`;
-
-async function carregarDadosComAPI() {
-  const container = document.getElementById('resultado');
-
-  try {
-    const response = await fetch(API_URL);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || `Erro HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
-    const rows = data.values;
-
-    if (!rows || rows.length === 0) {
+    if (!dados || dados.length === 0) {
       container.innerHTML = '<p class="erro">Nenhum dado encontrado na planilha.</p>';
       return;
     }
 
-    // A primeira linha contém os cabeçalhos das colunas
-    const colunas = rows[0];
-
-    // As linhas seguintes contêm todos os dados dos clientes
-    const dados = rows.slice(1);
+    // Pega automaticamente os nomes de todas as colunas
+    const colunas = Object.keys(dados[0]);
 
     // Monta o cabeçalho da tabela
     let html = '<table><thead><tr>';
-    colunas.forEach(col => {
-      html += `<th>${col || ''}</th>`;
+    colunas.forEach(coluna => {
+      html += `<th>${coluna}</th>`;
     });
     html += '</tr></thead><tbody>';
 
-    // Preenche as linhas da tabela
-    dados.forEach(row => {
+    // Preenche as linhas da tabela com os dados recebidos
+    dados.forEach(linha => {
       html += '<tr>';
-      colunas.forEach((_, index) => {
-        html += `<td>${row[index] !== undefined ? row[index] : ''}</td>`;
+      colunas.forEach(coluna => {
+        html += `<td>${linha[coluna] !== undefined ? linha[coluna] : ''}</td>`;
       });
       html += '</tr>';
     });
 
     html += '</tbody></table>';
 
-    // Insere no DOM
+    // Insere a tabela gerada no container
     container.innerHTML = html;
-
-  } catch (error) {
-    console.error('Erro detalhado:', error);
-    container.innerHTML = `<p class="erro">Falha ao carregar dados via API: <strong>${error.message}</strong></p>`;
+    container.classList.remove('carregando');
+  },
+  error: function(err) {
+    console.error('Erro ao carregar a planilha:', err);
+    document.getElementById('resultado').innerHTML = 
+      '<p class="erro">Falha ao carregar os dados.<br>' +
+      '1. Certifique-se de que a planilha no Google Sheets está configurada como <strong>"Qualquer pessoa com o link"</strong>.<br>' +
+      '2. Execute o projeto usando um servidor local (ex: extensão <strong>Live Server</strong> no VS Code ou <code>python -m http.server</code>).</p>';
   }
-}
-
-// Executa a requisição ao carregar o script
-carregarDadosComAPI();
+});
