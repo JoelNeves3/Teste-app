@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Base Elite Clientes - Dashboard</title>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background-color: #f4f6f8; padding: 20px; color: #333; }
+    .container { max-width: 100%; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 10px; flex-wrap: wrap; }
+    input { padding: 10px; width: 300px; border: 1px solid #ccc; border-radius: 4px; outline: none; }
+    .table-container { overflow-x: auto; max-height: 70vh; }
+    table { width: 100%; border-collapse: collapse; white-space: nowrap; font-size: 13px; }
+    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #ddd; }
+    th { background: #2c3e50; color: #fff; position: sticky; top: 0; z-index: 10; }
+    tr:hover { background-color: #f1f1f1; }
+    .erro { color: #e74c3c; font-weight: bold; padding: 20px; text-align: center; white-space: normal; line-height: 1.5; }
+    #contador { margin-left: 8px; color: #666; font-size: 13px; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>Base Elite Clientes</h1>
+      <div>
+        <input type="text" id="inputBusca" placeholder="Pesquisar por nome, CNPJ, e-mail...">
+        <span id="contador">0 registros</span>
+      </div>
+    </header>
+
+    <div id="resultado" class="table-container">Carregando dados da planilha...</div>
+  </div>
+
+  <script>
+    // ===== Configuração =====
+    // Link da Planilha Google (mesma lógica do index anterior: leitura via gviz/tq em CSV).
+    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1_sleJps2U8sjup_JIioBvbDDzQS9U2Uy3xrAh6LUxtQ/edit?usp=sharing';
+    // Nome da aba a ler. Deixe vazio ('') para ler a primeira aba da planilha (ou a aba do #gid= no link).
+    const SHEET_TAB = '';
+
+    // ===== Leitura da planilha =====
+    // Extrai o ID da planilha de dentro do link (trecho depois de /d/)
+    function sheetId(url) {
+      const m = String(url).match(/\/d\/([a-zA-Z0-9_-]{20,})/) || String(url).match(/^([a-zA-Z0-9_-]{20,})$/);
+      return m ? m[1] : null;
+    }
+    function sheetGid(url) {
+      const m = String(url).match(/[#&?]gid=(\d+)/);
+      return m ? m[1] : null;
+    }
+
+    // Busca a aba como CSV pela API de visualização do Google (gviz/tq)
+    async function loadGoogle(url, aba) {
+      const id = sheetId(url);
+      if (!id) throw new Error('Link inválido. Use o link completo da planilha Google (…/spreadsheets/d/ID/…).');
+      const gid = sheetGid(url);
+      let endereco = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&headers=1`;
+      if (aba) endereco += `&sheet=${encodeURIComponent(aba)}`;
+      else if (gid) endereco += `&gid=${gid}`;
+      endereco += `&_=${Date.now()}`; // evita cache
+
+      let txt;
+      try {
+        const r = await fetch(endereco);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        txt = await r.text();
+      } catch (e) {
+        throw new Error('Não consegui ler a planilha. Verifique se ela está compartilhada como "Qualquer pessoa com o link pode ver" e se é uma Planilha Google nativa (não um .xlsx salvo no Drive).');
+      }
+      if (!txt || txt.trim().startsWith('<')) {
+        throw new Error('A planilha não está pública. Compartilhe como "Qualquer pessoa com o link pode ver" e recarregue a página.');
+      }
+      return parseCSV(txt);
+    }
+
+    // Converte o CSV em linhas/colunas (trata aspas, vírgulas e quebras de linha dentro de células)
+    function parseCSV(txt) {
+      const linhas = []; let linha = [], campo = '', aspas = false;
+      for (let i = 0; i < txt.length; i++) {
+        const c = txt[i];
+        if (aspas) {
+          if (c === '"' && txt[i + 1] === '"') { campo += '"'; i++; }
+          else if (c === '"') aspas = false;
+          else campo += c;
+        } else if (c === '"') aspas = true;
+        else if (c === ',') { linha.push(campo); campo = ''; }
+        else if (c === '\n') { linha.push(campo); linhas.push(linha); linha = []; campo = ''; }
+        else if (c !== '\r') campo += c;
+      }
+      if (campo !== '' || linha.length) { linha.push(campo); linhas.push(linha); }
+      return linhas;
+    }
+
+    // ===== Tabela e busca =====
+    let CABECALHO = [], DADOS = [];
+    const $ = s => document.querySelector(s);
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    // Normaliza para busca: sem acento, minúsculo; também guarda só os dígitos (CNPJ com ou sem pontuação)
+    const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+    function prepararDados(linhas) {
+      // remove colunas totalmente vazias no fim e linhas em branco
+      const uteis = linhas.filter(l => l.some(c => String(c).trim() !== ''));
+      if (!uteis.length) throw new Error('A planilha está vazia.');
+      let nCols = 0;
+      uteis.forEach(l => l.forEach((c, i) => { if (String(c).trim() !== '') nCols = Math.max(nCols, i + 1); }));
+      CABECALHO = uteis[0].slice(0, nCols).map((h, i) => String(h).trim() || `Coluna ${i + 1}`);
+      DADOS = uteis.slice(1).map(l => {
+        const cel = Array.from({ length: nCols }, (_, i) => l[i] ?? '');
+        const texto = norm(cel.join(' | '));
+        return { cel, busca: texto, digitos: texto.replace(/\D/g, '') };
+      });
+    }
+
+    function render() {
+      const termo = norm($('#inputBusca').value.trim());
+      const termoDig = termo.replace(/\D/g, '');
+      const lista = !termo ? DADOS : DADOS.filter(d =>
+        d.busca.includes(termo) || (termoDig.length >= 3 && termoDig === termo.replace(/[.\-\/\s]/g, '') && d.digitos.includes(termoDig))
+      );
+      $('#contador').textContent = termo
+        ? `${lista.length.toLocaleString('pt-BR')} de ${DADOS.length.toLocaleString('pt-BR')} registros`
+        : `${DADOS.length.toLocaleString('pt-BR')} registros`;
+
+      if (!lista.length) { $('#resultado').innerHTML = '<p class="erro">Nenhum registro encontrado.</p>'; return; }
+      const th = CABECALHO.map(h => `<th>${esc(h)}</th>`).join('');
+      const trs = lista.map(d => `<tr>${d.cel.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('');
+      $('#resultado').innerHTML = `<table><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table>`;
+    }
+
+    // ===== Início =====
+    document.addEventListener('DOMContentLoaded', async () => {
+      let t;
+      $('#inputBusca').addEventListener('input', () => { clearTimeout(t); t = setTimeout(render, 200); });
+      try {
+        prepararDados(await loadGoogle(SHEET_URL, SHEET_TAB));
+        render();
+      } catch (e) {
+        $('#contador').textContent = '0 registros';
+        $('#resultado').innerHTML = `<p class="erro">${esc(e.message)}</p>`;
+      }
+    });
+  </script>
+</body>
+</html>
