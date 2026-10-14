@@ -1,5 +1,5 @@
 // URL ajustada para exportação direta em CSV
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/1_sleJps2U8sjup_JIioBvbDDzQS9U2Uy3xrAh6LUxtQ/export?format=csv';
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/1_sleJps2U8sjup_JIioBvbDDzQS9U2Uy3xrAh6LUxtQ/edit?usp=sharing';
 
 Papa.parse(CSV_URL, {
   download: true,
